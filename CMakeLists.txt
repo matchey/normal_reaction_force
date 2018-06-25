@@ -158,6 +158,9 @@ SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 #   ${catkin_LIBRARIES}
 # )
 
+add_executable(test_normal_reaction_force src/test.cpp src/normal_reaction_force.cpp)
+target_link_libraries(test_normal_reaction_force ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
 #############
 ## Install ##
 #############
