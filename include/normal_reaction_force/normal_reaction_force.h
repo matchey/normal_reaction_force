@@ -1,4 +1,13 @@
 
+//
+// include: normal_reaction_force.h
+//
+// last update: '18.xx.xx
+// author: matchey
+//
+// memo:
+//
+
 #ifndef NORMAL_REACTION_FORCE_H
 #define NORMAL_REACTION_FORCE_H
 
@@ -23,16 +32,17 @@ namespace normal_reaction_force{
 
 		private:
 		// void callback();
+		bool isOnLine(const PointN&);
+		void setObsOnLine(pcNormalPtr&);
 		void clustering();
-		bool isOnLine(const State4d&);
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;
 		// ros::Publisher _publisher;
-		double range;
+		double range; // [m]
 		pcNormalPtr obstacles;
-		std::vector<State4d> clusters;
-		State4d own;
+		std::vector<State4d> clusters; // (x, y, normal_x, normal_y)
+		State4d own; // (x, y, vx, vy)
 	};
 
 } // namespace normal_reaction_force

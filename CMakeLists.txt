@@ -10,6 +10,7 @@ project(normal_reaction_force)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
+  mmath
 )
 
 ## System dependencies are found with CMake's conventions
@@ -159,7 +160,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 # )
 
 add_executable(test_normal_reaction_force src/test.cpp src/normal_reaction_force.cpp)
-target_link_libraries(test_normal_reaction_force ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(test_normal_reaction_force binarion ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 #############
 ## Install ##
