@@ -21,6 +21,21 @@ namespace normal_reaction_force{
 
 	VectorField::~VectorField() {}
 
+	void VectorField::setObstacles(const pcNormalPtr& obs_cloud)
+	{
+		obstacles = obs_cloud;
+	}
+
+	void VectorField::velocityConversion(const State4d& own_state, Eigen::Vector2d& velocity)
+	{
+		own = own_state;
+		clustering();
+
+		for(auto it = clusters.begin(); it != clusters.end(); ++it){
+			double dist = (it->position - own.position).norm();
+		}
+	}
+
 	//private
 	// void VectorField::callback()
 	// {

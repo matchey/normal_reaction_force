@@ -29,6 +29,8 @@ namespace normal_reaction_force{
 		public:
 		VectorField();
 		~VectorField();
+		void setObstacles(const pcNormalPtr&);
+		void velocityConversion(const State4d&, Eigen::Vector2d&);
 
 		private:
 		// void callback();
