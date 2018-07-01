@@ -29,10 +29,17 @@ namespace normal_reaction_force{
 	void VectorField::velocityConversion(const State4d& own_state, Eigen::Vector2d& velocity)
 	{
 		own = own_state;
+		double speed = own.velocity.norm();
 		clustering();
 
+		velocity = {0.0, 0.0};
+
 		for(auto it = clusters.begin(); it != clusters.end(); ++it){
-			double dist = (it->position - own.position).norm();
+			Eigen::Vector2d own2obs = it->position - own.position;
+			if(own2obs.dot(own.velocity) > 0){ // obstacleに向かう速度なら
+				double dist = own2obs.norm();
+				velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity * speed / dist;
+			}
 		}
 	}
 

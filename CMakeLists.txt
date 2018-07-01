@@ -110,10 +110,10 @@ include_directories(${Eigen3_INCLUDE_DIRS})
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES normal_reaction_force
-#  CATKIN_DEPENDS roscpp sensor_msgs
-#  DEPENDS system_lib
+  INCLUDE_DIRS include # 他のパッケージからincludeできるように(両方必要)
+  # LIBRARIES normal_reaction_force
+  # CATKIN_DEPENDS roscpp sensor_msgs
+  # DEPENDS system_lib
 )
 
 ###########
@@ -133,6 +133,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/normal_reaction_force.cpp
 # )
+add_library(normal_reaction_force src/normal_reaction_force.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -159,8 +160,8 @@ SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 #   ${catkin_LIBRARIES}
 # )
 
-add_executable(test_normal_reaction_force src/test.cpp src/normal_reaction_force.cpp)
-target_link_libraries(test_normal_reaction_force binarion ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+# add_executable(test_normal_reaction_force src/test.cpp src/normal_reaction_force.cpp)
+# target_link_libraries(test_normal_reaction_force binarion ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 #############
 ## Install ##
