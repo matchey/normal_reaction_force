@@ -11,7 +11,7 @@
 #ifndef NORMAL_REACTION_FORCE_H
 #define NORMAL_REACTION_FORCE_H
 
-#include <ros/ros.h> // for debug
+#include <ros/ros.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -34,14 +34,14 @@ namespace normal_reaction_force{
 
 		private:
 		// void callback();
-		bool isOnLine(const PointN&);
-		void setObsOnLine(pcNormalPtr&);
-		void clustering();
+		bool isOnLine(const PointN&); // in setObsOnLine()
+		void setObsOnLine(pcNormalPtr&); // in clustering()
+		void clustering(); // in velocityConversion()
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;
-		ros::NodeHandle node; // for debug
-		ros::Publisher _publisher; // for debug
+		// ros::NodeHandle node; // for debug
+		// ros::Publisher _publisher; // for debug
 		double range; // [m]
 		double expand; // [m]
 		double step_size; // 何秒先までみるか[s]

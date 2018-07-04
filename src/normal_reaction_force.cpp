@@ -8,8 +8,8 @@
 // memo:
 //
 
-#include <sensor_msgs/PointCloud2.h> // for debug
-#include <pcl_conversions/pcl_conversions.h> // for debug
+// #include <sensor_msgs/PointCloud2.h> // for debug
+// #include <pcl_conversions/pcl_conversions.h> // for debug
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include "mmath/binarion.h"
@@ -18,6 +18,7 @@
 namespace normal_reaction_force{
 
 	VectorField::VectorField()
+		: own({{0,0}, {0,0}})
 	{
 		// ros::param::param<double>
 		// 	("/normal_reaction_force/range", range, 1.2);
@@ -26,11 +27,11 @@ namespace normal_reaction_force{
 			("/normal_reaction_force/expand", expand, 0.1);
 
 		ros::param::param<double>
-			("/normal_reaction_force/step_size", step_size, 5);
+			("/normal_reaction_force/step_size", step_size, 3);
 
 		range = step_size * 2.0 + expand;
 
-		_publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
+		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 	}
 
 	VectorField::~VectorField() {}
@@ -56,12 +57,18 @@ namespace normal_reaction_force{
 		// std::cout << "clusters.size() : " << clusters.size() << std::endl;
 		// std::cout << velocity << std::endl;
 
+		// std::cout << "clusters.size() : " << clusters.size() << std::endl;
 		for(auto it = clusters.begin(); it != clusters.end(); ++it){
+			// std::cout << std::distance(clusters.begin(), it) << std::endl;
 			// std::cout << "obs pos :" << std::endl;
 			// std::cout << it->position << std::endl;
 			// std::cout << "obs vel :" << std::endl;
 			// std::cout << it->velocity << std::endl;
 			Eigen::Vector2d own2obs = it->position - own.position;
+			// std::cout << "obs :" << std::endl;
+			// std::cout << it->position << std::endl;
+			// std::cout << "own2obs :" << std::endl;
+			// std::cout << own2obs << std::endl;
 			if(own2obs.dot(velocity) > 0){ // obstacleに向かう速度なら
 				double apart = own2obs.norm(); // obstacleまでの距離
 				if(own2obs.dot(it->velocity) > 0){
@@ -69,19 +76,25 @@ namespace normal_reaction_force{
 				}
 				// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity * speed / apart;
 				double speed = fabs(it->velocity.dot(velocity));
-				double dist = speed * step_size; // 1 step_size で進む距離
+				double dist = velocity.norm() * step_size; // 1 step_size で進む距離
+				// std::cout << "dist = " << dist << std::endl;
+				// std::cout << "apart = " << apart << std::endl;
 				if(apart - expand < 0){
 					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity;
+					// std::cout << "in expand :" << std::endl;
+					// std::cout << velocity << std::endl;
 					velocity += speed * it->velocity;
 					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity.normalized();
 				}else if(apart - expand < dist){
 					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity
 					// velocity += fabs(it->velocity.dot(velocity)) * it->velocity
-					velocity += speed * (1 - (apart - expand) / dist) * it->velocity;
+					// std::cout << "velocity before :" << std::endl;
+					// std::cout << velocity << std::endl;
+					velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * it->velocity;
 				}else{
 					// velocity += speed * it->velocity * 0.3;
 				}
-				velocity = velocity.normalized() * own.velocity.norm();
+				velocity = own.velocity.norm() * velocity.normalized();
 			}
 		}
 
@@ -154,17 +167,18 @@ namespace normal_reaction_force{
 		setObsOnLine(obs_on_line);
 
 		/* for debug */
-		static int cnt = 0;
-		if(cnt == 30){
-			sensor_msgs::PointCloud2 pc2;
-			pcl::toROSMsg(*obs_on_line, pc2);
-			pc2.header.frame_id = "/map";
-			pc2.header.stamp = ros::Time::now();
-			_publisher.publish(pc2);
-			cnt = 0;
-		}else{
-			cnt++;
-		}
+		// static int cnt = 0;
+		// if(cnt == 0){
+		// 	sensor_msgs::PointCloud2 pc2;
+		// 	pcl::toROSMsg(*obs_on_line, pc2);
+		// 	pc2.header.frame_id = "/map";
+		// 	pc2.header.stamp = ros::Time::now();
+		// 	_publisher.publish(pc2);
+		// }else if(cnt == 60){
+		// 	cnt = 0;
+		// }else{
+		// 	cnt++;
+		// }
 		/* ********* */
 
 		if(obs_on_line->points.empty()) return;
@@ -175,9 +189,9 @@ namespace normal_reaction_force{
 		std::vector<pcl::PointIndices> cluster_indices;
 		pcl::EuclideanClusterExtraction<PointN> ec;
 		// ec.setClusterTolerance (0.02); // 2cm
-		ec.setClusterTolerance (0.06);
+		ec.setClusterTolerance (0.15);
 		ec.setMinClusterSize (10);
-		ec.setMaxClusterSize (2500);
+		ec.setMaxClusterSize (1500);
 		ec.setSearchMethod (tree);
 		ec.setInputCloud (obs_on_line);
 		ec.extract (cluster_indices);
@@ -187,7 +201,7 @@ namespace normal_reaction_force{
 		for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin ();
 				                                             it != cluster_indices.end (); ++it)
 		{
-			State4d cluster;
+			State4d cluster = {{0, 0}, {0, 0}};
 			int npoints = 0;
 			// pcNormalPtr cloud_cluster (new pcNormal);
 			for (std::vector<int>::const_iterator pit = it->indices.begin ();
