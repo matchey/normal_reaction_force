@@ -8,8 +8,8 @@
 // memo:
 //
 
-// #include <sensor_msgs/PointCloud2.h> // for debug
-// #include <pcl_conversions/pcl_conversions.h> // for debug
+#include <sensor_msgs/PointCloud2.h> // for debug
+#include <pcl_conversions/pcl_conversions.h> // for debug
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include "mmath/binarion.h"
@@ -31,7 +31,7 @@ namespace normal_reaction_force{
 
 		range = step_size * 2.0 + expand;
 
-		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
+		_publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 	}
 
 	VectorField::~VectorField() {}
@@ -39,6 +39,37 @@ namespace normal_reaction_force{
 	void VectorField::setObstacles(const pcNormalPtr& obs_cloud)
 	{
 		obstacles = obs_cloud;
+	}
+
+	void VectorField::velocityConversion(State4d& own_state)
+	{
+		own = own_state;
+
+		clustering();
+
+		const double speed = own.velocity.norm();
+
+		for(auto it = clusters.begin(); it != clusters.end(); ++it){
+			Eigen::Vector2d own2obs = it->position - own.position;
+			if(own2obs.dot(own.velocity) > 0){ // obstacleに向かう速度なら
+				double apart = own2obs.norm(); // obstacleまでの距離
+				if(own2obs.dot(it->velocity) > 0){
+					it->velocity *= -1;
+				}
+				double dotProd = fabs(it->velocity.dot(own.velocity));
+				double dist = speed * step_size; // 1 step_size で進む距離
+				if(apart - expand < 0){
+					own.velocity += dotProd * it->velocity;
+				}else if(apart - expand < dist){
+					own.velocity += (1 - (apart - expand) / dist) * dotProd * it->velocity;
+					// own.velocity += 1/pow(2, apart)* dotProd * (1 - (apart - expand) / dist) * it->velocity;
+				}
+
+				own.velocity = speed * own.velocity.normalized();
+			}
+		}
+
+		clusters.clear();
 	}
 
 	void VectorField::velocityConversion(const State4d& own_state, Eigen::Vector2d& velocity)
@@ -51,7 +82,7 @@ namespace normal_reaction_force{
 		velocity = own.velocity;
 
 		// std::cout << "\n" << std::endl;
-		// std::cout << "velocity before :" << std::endl;
+		// std::cout << "\nvelocity before :" << std::endl;
 		// std::cout << velocity << std::endl;
 
 		// std::cout << "clusters.size() : " << clusters.size() << std::endl;
@@ -88,9 +119,12 @@ namespace normal_reaction_force{
 				}else if(apart - expand < dist){
 					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity
 					// velocity += fabs(it->velocity.dot(velocity)) * it->velocity
-					// std::cout << "velocity before :" << std::endl;
-					// std::cout << velocity << std::endl;
-					velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * it->velocity;
+					std::cout << "\nvelocity before :" << std::endl;
+					std::cout << velocity << std::endl;
+					velocity +=  speed * (1 - (apart - expand) / dist) * it->velocity;
+					// velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * it->velocity;
+					std::cout << "velocity after :" << std::endl;
+					std::cout << velocity << std::endl;
 				}else{
 					// velocity += speed * it->velocity * 0.3;
 				}
@@ -167,18 +201,18 @@ namespace normal_reaction_force{
 		setObsOnLine(obs_on_line);
 
 		/* for debug */
-		// static int cnt = 0;
-		// if(cnt == 0){
-		// 	sensor_msgs::PointCloud2 pc2;
-		// 	pcl::toROSMsg(*obs_on_line, pc2);
-		// 	pc2.header.frame_id = "/map";
-		// 	pc2.header.stamp = ros::Time::now();
-		// 	_publisher.publish(pc2);
-		// }else if(cnt == 60){
-		// 	cnt = 0;
-		// }else{
-		// 	cnt++;
-		// }
+		static int cnt = 0;
+		if(cnt == 0){
+			sensor_msgs::PointCloud2 pc2;
+			pcl::toROSMsg(*obs_on_line, pc2);
+			pc2.header.frame_id = "/velodyne";
+			pc2.header.stamp = ros::Time::now();
+			_publisher.publish(pc2);
+		}else if(cnt == 60){
+			cnt = 0;
+		}else{
+			cnt++;
+		}
 		/* ********* */
 
 		if(obs_on_line->points.empty()) return;

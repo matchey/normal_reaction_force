@@ -30,6 +30,7 @@ namespace normal_reaction_force{
 		VectorField();
 		~VectorField();
 		void setObstacles(const pcNormalPtr&);
+		void velocityConversion(State4d&);
 		void velocityConversion(const State4d&, Eigen::Vector2d&);
 
 		private:
@@ -40,8 +41,8 @@ namespace normal_reaction_force{
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;
-		// ros::NodeHandle node; // for debug
-		// ros::Publisher _publisher; // for debug
+		ros::NodeHandle node; // for debug
+		ros::Publisher _publisher; // for debug
 		double range; // [m]
 		double expand; // [m]
 		double step_size; // 何秒先までみるか[s]
