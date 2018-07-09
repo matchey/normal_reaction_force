@@ -119,12 +119,12 @@ namespace normal_reaction_force{
 				}else if(apart - expand < dist){
 					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity
 					// velocity += fabs(it->velocity.dot(velocity)) * it->velocity
-					std::cout << "\nvelocity before :" << std::endl;
-					std::cout << velocity << std::endl;
+					// std::cout << "\nvelocity before :" << std::endl;
+					// std::cout << velocity << std::endl;
 					velocity +=  speed * (1 - (apart - expand) / dist) * it->velocity;
 					// velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * it->velocity;
-					std::cout << "velocity after :" << std::endl;
-					std::cout << velocity << std::endl;
+					// std::cout << "velocity after :" << std::endl;
+					// std::cout << velocity << std::endl;
 				}else{
 					// velocity += speed * it->velocity * 0.3;
 				}
