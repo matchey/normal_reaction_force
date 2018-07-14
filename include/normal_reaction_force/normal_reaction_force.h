@@ -46,7 +46,7 @@ namespace normal_reaction_force{
 		double range; // [m]
 		double expand; // [m]
 		double step_size; // 何秒先までみるか[s]
-		pcNormalPtr obstacles;
+		pcNormalPtr obstacles; // Normal に速度を足しこむとか??
 		std::vector<State4d> clusters; // (x, y, normal_x, normal_y)
 		State4d own; // (x, y, vx, vy)
 	};
