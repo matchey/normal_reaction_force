@@ -121,7 +121,7 @@ namespace normal_reaction_force{
 					// velocity += fabs(it->velocity.dot(velocity)) * it->velocity
 					// std::cout << "\nvelocity before :" << std::endl;
 					// std::cout << velocity << std::endl;
-					velocity +=  speed * (1 - (apart - expand) / dist) * it->velocity;
+					velocity += speed * (1 - (apart - expand) / dist) * it->velocity;
 					// velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * it->velocity;
 					// std::cout << "velocity after :" << std::endl;
 					// std::cout << velocity << std::endl;
