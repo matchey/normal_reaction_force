@@ -45,24 +45,24 @@ namespace normal_reaction_force{
 	{
 		own = own_state;
 
-		clustering();
+		clustering(); // own.positionに向かう法線を持つobstalceをclustering
 
 		const double speed = own.velocity.norm();
 
-		for(auto it = clusters.begin(); it != clusters.end(); ++it){
-			Eigen::Vector2d own2obs = it->position - own.position;
+		for(auto obs = clusters.begin(); obs != clusters.end(); ++obs){
+			Eigen::Vector2d own2obs = obs->position - own.position;
 			if(own2obs.dot(own.velocity) > 0){ // obstacleに向かう速度なら
 				double apart = own2obs.norm(); // obstacleまでの距離
-				if(own2obs.dot(it->velocity) > 0){
-					it->velocity *= -1;
+				if(own2obs.dot(obs->normal) > 0){
+					obs->normal *= -1;
 				}
-				double dotProd = fabs(it->velocity.dot(own.velocity));
+				double dotProd = fabs(obs->normal.dot(own.velocity));
 				double dist = speed * step_size; // 1 step_size で進む距離
 				if(apart - expand < 0){
-					own.velocity += dotProd * it->velocity;
+					own.velocity += dotProd * obs->normal;
 				}else if(apart - expand < dist){
-					own.velocity += (1 - (apart - expand) / dist) * dotProd * it->velocity;
-					// own.velocity += 1/pow(2, apart)* dotProd * (1 - (apart - expand) / dist) * it->velocity;
+					own.velocity += (1 - (apart - expand) / dist) * dotProd * obs->normal;
+					// own.velocity += 1/pow(2, apart)* dotProd * (1 - (apart - expand) / dist) * obs->velocity;
 				}
 
 				own.velocity = speed * own.velocity.normalized();
@@ -89,44 +89,44 @@ namespace normal_reaction_force{
 		// std::cout << velocity << std::endl;
 
 		// std::cout << "clusters.size() : " << clusters.size() << std::endl;
-		for(auto it = clusters.begin(); it != clusters.end(); ++it){
-			// std::cout << std::distance(clusters.begin(), it) << std::endl;
+		for(auto obs = clusters.begin(); obs != clusters.end(); ++obs){
+			// std::cout << std::distance(clusters.begin(), obs) << std::endl;
 			// std::cout << "obs pos :" << std::endl;
-			// std::cout << it->position << std::endl;
+			// std::cout << obs->position << std::endl;
 			// std::cout << "obs vel :" << std::endl;
-			// std::cout << it->velocity << std::endl;
-			Eigen::Vector2d own2obs = it->position - own.position;
+			// std::cout << obs->velocity << std::endl;
+			Eigen::Vector2d own2obs = obs->position - own.position;
 			// std::cout << "obs :" << std::endl;
-			// std::cout << it->position << std::endl;
+			// std::cout << obs->position << std::endl;
 			// std::cout << "own2obs :" << std::endl;
 			// std::cout << own2obs << std::endl;
 			if(own2obs.dot(velocity) > 0){ // obstacleに向かう速度なら
 				double apart = own2obs.norm(); // obstacleまでの距離
-				if(own2obs.dot(it->velocity) > 0){
-					it->velocity *= -1;
+				if(own2obs.dot(obs->normal) > 0){
+					obs->normal *= -1;
 				}
-				// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity * speed / apart;
-				double speed = fabs(it->velocity.dot(velocity));
+				// velocity += fabs(obs->normal.dot(own.velocity)) * obs->normal * speed / apart;
+				double speed = fabs(obs->normal.dot(velocity));
 				double dist = velocity.norm() * step_size; // 1 step_size で進む距離
 				// std::cout << "dist = " << dist << std::endl;
 				// std::cout << "apart = " << apart << std::endl;
 				if(apart - expand < 0){
-					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity;
+					// velocity += fabs(obs->velocity.dot(own.velocity)) * obs->velocity;
 					// std::cout << "in expand :" << std::endl;
 					// std::cout << velocity << std::endl;
-					velocity += speed * it->velocity;
-					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity.normalized();
+					velocity += speed * obs->normal;
+					// velocity += fabs(obs->velocity.dot(own.velocity)) * obs->velocity.normalized();
 				}else if(apart - expand < dist){
-					// velocity += fabs(it->velocity.dot(own.velocity)) * it->velocity
-					// velocity += fabs(it->velocity.dot(velocity)) * it->velocity
+					// velocity += fabs(obs->velocity.dot(own.velocity)) * obs->normal
+					// velocity += fabs(obs->normal.dot(velocity)) * obs->normal
 					// std::cout << "\nvelocity before :" << std::endl;
 					// std::cout << velocity << std::endl;
-					velocity += speed * (1 - (apart - expand) / dist) * it->velocity;
-					// velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * it->velocity;
+					velocity += speed * (1 - (apart - expand) / dist) * obs->normal;
+					// velocity += 1/pow(2, apart)* speed * (1 - (apart - expand) / dist) * obs->velocity;
 					// std::cout << "velocity after :" << std::endl;
 					// std::cout << velocity << std::endl;
 				}else{
-					// velocity += speed * it->velocity * 0.3;
+					// velocity += speed * obs->velocity * 0.3;
 				}
 				velocity = own.velocity.norm() * velocity.normalized();
 			}
@@ -225,7 +225,8 @@ namespace normal_reaction_force{
 		// ec.setClusterTolerance (0.02); // 2cm
 		ec.setClusterTolerance (0.15);
 		ec.setMinClusterSize (10);
-		ec.setMaxClusterSize (1500);
+		// ec.setMaxClusterSize (1500);
+		ec.setMaxClusterSize (15000);
 		ec.setSearchMethod (tree);
 		ec.setInputCloud (obs_on_line);
 		ec.extract (cluster_indices);
@@ -235,7 +236,7 @@ namespace normal_reaction_force{
 		for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin ();
 				                                             it != cluster_indices.end (); ++it)
 		{
-			State4d cluster = {{0, 0}, {0, 0}};
+			Obstacle cluster = {{0, 0}, {0, 0}, {0, 0}};
 			int npoints = 0;
 			// pcNormalPtr cloud_cluster (new pcNormal);
 			for (std::vector<int>::const_iterator pit = it->indices.begin ();
@@ -243,8 +244,8 @@ namespace normal_reaction_force{
 				// cloud_cluster->points.push_back (obs_on_line->points[*pit]); /#<{(|
 				cluster.position.x() += obs_on_line->points[*pit].x;
 				cluster.position.y() += obs_on_line->points[*pit].y;
-				cluster.velocity.x() += obs_on_line->points[*pit].normal_x;
-				cluster.velocity.y() += obs_on_line->points[*pit].normal_y;
+				cluster.normal.x() += obs_on_line->points[*pit].normal_x;
+				cluster.normal.y() += obs_on_line->points[*pit].normal_y;
 				npoints++;
 			}
 			// if(npoints > 5){
@@ -252,9 +253,9 @@ namespace normal_reaction_force{
 				// cluster.position.x() /= npoints;
 				// cluster.position.y() /= npoints;
 				cluster.position /= npoints;
-				// cluster.velocity.x() /= npoints;
-				// cluster.velocity.y() /= npoints;
-				cluster.velocity /= npoints;
+				// cluster.normal.x() /= npoints;
+				// cluster.normal.y() /= npoints;
+				cluster.normal /= npoints;
 				clusters.push_back(cluster);
 			}
 			// cloud_cluster->width = cloud_cluster->points.size ();

@@ -25,6 +25,12 @@ namespace normal_reaction_force{
 		Eigen::Vector2d velocity;
 	};
 
+	struct Obstacle{
+		Eigen::Vector2d position;
+		Eigen::Vector2d normal;
+		Eigen::Vector2d velocity;
+	};
+
 	class VectorField{
 		public:
 		VectorField();
@@ -47,7 +53,7 @@ namespace normal_reaction_force{
 		double expand; // [m]
 		double step_size; // 何秒先までみるか[s]
 		pcNormalPtr obstacles; // Normal に速度を足しこむとか??
-		std::vector<State4d> clusters; // (x, y, normal_x, normal_y)
+		std::vector<Obstacle> clusters; // obstacle(x, y, normal_x, normal_y, vx, vy)
 		State4d own; // (x, y, vx, vy)
 	};
 
