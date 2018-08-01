@@ -12,10 +12,15 @@
 #define NORMAL_REACTION_FORCE_H
 
 #include <ros/ros.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
 namespace normal_reaction_force{
+
+	namespace vmsgs = visualization_msgs;
+
 	typedef pcl::PointNormal PointN;
 	typedef pcl::PointCloud<PointN> pcNormal;
 	typedef pcNormal::Ptr pcNormalPtr;
@@ -36,6 +41,7 @@ namespace normal_reaction_force{
 		VectorField();
 		~VectorField();
 		void setObstacles(const pcNormalPtr&);
+		void setHumans(const vmsgs::MarkerArray::ConstPtr&);
 		void velocityConversion(State4d&);
 		void velocityConversion(const State4d&, Eigen::Vector2d&);
 
@@ -44,6 +50,8 @@ namespace normal_reaction_force{
 		bool isOnLine(const PointN&); // in setObsOnLine()
 		void setObsOnLine(pcNormalPtr&); // in clustering()
 		void clustering(); // in velocityConversion()
+		template<class T_src, class T_tgt>
+		double distance(const T_src&, const T_tgt&);
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;

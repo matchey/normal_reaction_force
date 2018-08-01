@@ -41,6 +41,26 @@ namespace normal_reaction_force{
 		obstacles = obs_cloud;
 	}
 
+	void VectorField::setHumans(const vmsgs::MarkerArray::ConstPtr& humans)
+	{
+		for(auto arrow = humans->markers.begin(); arrow != humans->markers.end(); ++arrow){
+			double yaw = atan2(2*(arrow->pose.orientation.w * arrow->pose.orientation.z
+								+ arrow->pose.orientation.x * arrow->pose.orientation.y),
+					1 - 2*(pow(arrow->pose.orientation.y, 2) + pow(arrow->pose.orientation.z, 2)));
+
+			double dist = distance(own.position, arrow->pose.position);
+			// if(1.0 < dist && dist < range){
+			if(1.0 < dist){
+				Eigen::Vector2d obs2own = {own.position.x() - arrow->pose.position.x,
+										   own.position.y() - arrow->pose.position.y};
+				Obstacle cluster = {{arrow->pose.position.x, arrow->pose.position.y},
+																			 obs2own,
+							  {arrow->scale.x * cos(yaw), arrow->scale.x * sin(yaw)}};
+				clusters.push_back(cluster);
+			}
+		}
+	}
+
 	void VectorField::velocityConversion(State4d& own_state)
 	{
 		own = own_state;
@@ -144,6 +164,10 @@ namespace normal_reaction_force{
 	// }
 	bool VectorField::isOnLine(const PointN& obstacle)
 	{
+		if(distance(own.position, obstacle) < 1.0){
+			return false;
+		}
+
 		const double threshold = 15.0 * M_PI / 180;
 
 		// obstacle pointの法線の傾き
@@ -269,5 +293,14 @@ namespace normal_reaction_force{
 			// j++;
 		}
 	}
+	
+	template<class T_src, class T_tgt>
+	double VectorField::distance(const T_src& pos_src, const T_tgt& pos_tgt)
+	{
+		return sqrt(pow(pos_src.x() - pos_tgt.x, 2) + pow(pos_src.y() - pos_tgt.y, 2));
+	}
+
+	template double VectorField::distance(const Eigen::Vector2d&, const geometry_msgs::Point&);
+	template double VectorField::distance(const Eigen::Vector2d&, const PointN&);
 
 } // namespace normal_reaction_force
