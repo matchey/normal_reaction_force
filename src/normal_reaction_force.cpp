@@ -23,6 +23,12 @@ namespace normal_reaction_force{
 		// ros::param::param<double>
 		// 	("/normal_reaction_force/range", range, 1.2);
 
+		ros::param::param<int>
+			("/normal_reaction_force/grid_dimensions", grid_dim, 320);
+
+		ros::param::param<double>
+			("/normal_reaction_force/cell_size", m_per_cell, 0.5);
+
 		ros::param::param<double>
 			("/normal_reaction_force/expand", expand, 0.1);
 
@@ -303,4 +309,64 @@ namespace normal_reaction_force{
 	template double VectorField::distance(const Eigen::Vector2d&, const geometry_msgs::Point&);
 	template double VectorField::distance(const Eigen::Vector2d&, const PointN&);
 
+	void VectorField::constructGrid()
+	{
+		Eigen::Vector2d field[grid_dim][grid_dim];
+		bool init[grid_dim][grid_dim];
+
+		memset(&init, 0, grid_dim*grid_dim);
+
+		for(unsigned idx = 0; idx < obstacles->points.size(); ++idx){
+			int i, x , y;
+			double i_max;
+			bool direction; // x:true, y:false
+
+			Eigen::Vector2d normal = {obstacles->points[idx].normal_x,
+									  obstacles->points[idx].normal_y};
+			double theta = atan2(normal.y(), normal.x());
+
+			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta && theta < -3*M_PI/4)){
+				i = x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
+				i_max = range * cos(theta) / m_per_cell;
+				direction = true;
+			}else{ // y
+				i = y = ((grid_dim/2) + obstacles->points[idx].y / m_per_cell);
+				i_max = range * sin(theta) / m_per_cell;
+				direction = false;
+			}
+			if(i < 0 || i > grid_dim){ break; }
+
+			while(1){
+				if(direction){ y = i * tan(theta);
+				}else{ x = i / tan(theta); }
+				if(-M_PI/4 <= theta && theta < 3*M_PI){ // +
+					++i;
+					if(direction ? (i < 0 || i < x + i_max) : (i < 0 || i < y + i_max)){ break; }
+				}else{ // -
+					--i;
+					if(direction ? i>grid_dim || i > x+i_max : i>grid_dim || i > y+i_max) break;
+				}
+				if(direction){
+					if(y >= 0 && y < grid_dim){
+						if(!init[i][y]){
+							field[i][y] = 1.0 / (x/cos(theta)) * normal;
+							init[i][y] = true;
+						}else{
+							field[i][y] += 1.0 / (x/cos(theta)) * normal;
+						}
+					}
+				}else{
+					if(x >= 0 && x < grid_dim){
+						if(!init[x][i]){
+							field[x][i] = 1.0 / (x/cos(theta)) * normal;
+							init[x][i] = true;
+						}else{
+							field[x][i] += 1.0 / (x/cos(theta)) * normal;
+						}
+					}
+				}
+			}
+		}
+	}
+	
 } // namespace normal_reaction_force

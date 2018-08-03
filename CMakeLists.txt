@@ -134,6 +134,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 #   src/${PROJECT_NAME}/normal_reaction_force.cpp
 # )
 add_library(normal_reaction_force src/normal_reaction_force.cpp)
+add_library(vector_field src/vector_field.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

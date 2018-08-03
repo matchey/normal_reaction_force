@@ -16,6 +16,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+// #include <boost/multi_array.hpp>
 
 namespace normal_reaction_force{
 
@@ -52,15 +53,20 @@ namespace normal_reaction_force{
 		void clustering(); // in velocityConversion()
 		template<class T_src, class T_tgt>
 		double distance(const T_src&, const T_tgt&);
+		void constructGrid();
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;
 		ros::NodeHandle node; // for debug
 		ros::Publisher _publisher; // for debug
-		double range; // [m]
-		double expand; // [m]
+
+		int grid_dim; // grid_dimensions [個]
+		double m_per_cell; // cell_size [m]
+		double range; // max distance to obstacle with influence [m]
+		double expand; // safe margin of Obstacle[m]
 		double step_size; // 何秒先までみるか[s]
-		pcNormalPtr obstacles; // Normal に速度を足しこむとか??
+
+		pcNormalPtr obstacles;
 		std::vector<Obstacle> clusters; // obstacle(x, y, normal_x, normal_y, vx, vy)
 		State4d own; // (x, y, vx, vy)
 	};
