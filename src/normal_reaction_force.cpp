@@ -10,9 +10,11 @@
 
 #include <sensor_msgs/PointCloud2.h> // for debug
 #include <pcl_conversions/pcl_conversions.h> // for debug
+#include <tf/transform_broadcaster.h> // for debug
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include "mmath/binarion.h"
+#include "mmath/common/logistic.h"
 #include "normal_reaction_force/normal_reaction_force.h"
 
 namespace normal_reaction_force{
@@ -27,7 +29,7 @@ namespace normal_reaction_force{
 			("/normal_reaction_force/grid_dimensions", grid_dim, 320);
 
 		ros::param::param<double>
-			("/normal_reaction_force/cell_size", m_per_cell, 0.5);
+			("/normal_reaction_force/cell_size", m_per_cell, 0.3);
 
 		ros::param::param<double>
 			("/normal_reaction_force/expand", expand, 0.1);
@@ -35,9 +37,15 @@ namespace normal_reaction_force{
 		ros::param::param<double>
 			("/normal_reaction_force/step_size", step_size, 3);
 
-		range = step_size * 2.0 + expand;
+		field.resize(grid_dim);
+		for(int i=0; i<grid_dim; ++i){
+			field[i].resize(grid_dim);
+		}
 
-		_publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
+		range = step_size * 1.1 + expand; // velocity = 1.1 [m/s]
+
+		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
+		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
 	}
 
 	VectorField::~VectorField() {}
@@ -45,6 +53,12 @@ namespace normal_reaction_force{
 	void VectorField::setObstacles(const pcNormalPtr& obs_cloud)
 	{
 		obstacles = obs_cloud;
+		constructGrid();
+		static int cnt = 0;
+		if(cnt == 5){
+			publish();
+		}
+		++cnt;
 	}
 
 	void VectorField::setHumans(const vmsgs::MarkerArray::ConstPtr& humans)
@@ -231,18 +245,18 @@ namespace normal_reaction_force{
 		setObsOnLine(obs_on_line);
 
 		/* for debug */
-		static int cnt = 0;
-		if(cnt == 0){
-			sensor_msgs::PointCloud2 pc2;
-			pcl::toROSMsg(*obs_on_line, pc2);
-			pc2.header.frame_id = "/velodyne";
-			pc2.header.stamp = ros::Time::now();
-			_publisher.publish(pc2);
-		}else if(cnt == 60){
-			cnt = 0;
-		}else{
-			cnt++;
-		}
+		// static int cnt = 0;
+		// if(cnt == 0){
+		// 	sensor_msgs::PointCloud2 pc2;
+		// 	pcl::toROSMsg(*obs_on_line, pc2);
+		// 	pc2.header.frame_id = "/velodyne";
+		// 	pc2.header.stamp = ros::Time::now();
+		// 	_publisher.publish(pc2);
+		// }else if(cnt == 60){
+		// 	cnt = 0;
+		// }else{
+		// 	cnt++;
+		// }
 		/* ********* */
 
 		if(obs_on_line->points.empty()) return;
@@ -311,62 +325,140 @@ namespace normal_reaction_force{
 
 	void VectorField::constructGrid()
 	{
-		Eigen::Vector2d field[grid_dim][grid_dim];
-		bool init[grid_dim][grid_dim];
-
-		memset(&init, 0, grid_dim*grid_dim);
-
-		for(unsigned idx = 0; idx < obstacles->points.size(); ++idx){
-			int i, x , y;
-			double i_max;
-			bool direction; // x:true, y:false
-
-			Eigen::Vector2d normal = {obstacles->points[idx].normal_x,
-									  obstacles->points[idx].normal_y};
-			double theta = atan2(normal.y(), normal.x());
-
-			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta && theta < -3*M_PI/4)){
-				i = x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
-				i_max = range * cos(theta) / m_per_cell;
-				direction = true;
-			}else{ // y
-				i = y = ((grid_dim/2) + obstacles->points[idx].y / m_per_cell);
-				i_max = range * sin(theta) / m_per_cell;
-				direction = false;
+		// Eigen::Vector2d field[grid_dim][grid_dim];
+		int cnt[grid_dim][grid_dim];
+		// memset(&cnt, 1, grid_dim*grid_dim);
+		for (int x = 0; x < grid_dim; x++) {
+			for (int y = 0; y < grid_dim; y++) {
+				cnt[x][y] = 0;
 			}
-			if(i < 0 || i > grid_dim){ break; }
+		}
+
+		Eigen::Vector2d v = {0.0, 0.0};
+		for(int i = 0; i<grid_dim; ++i){
+			std::fill(field[i].begin(), field[i].end(), v);
+		}
+
+		unsigned npoints = obstacles->points.size();
+		for(unsigned idx = 0; idx < npoints; ++idx){
+			int i = 0, j = 0;
+			double i_max;
+			bool is2x; // direction{ x:true, y:false }
+
+			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
+										    -obstacles->points[idx].normal_y};
+			const double theta = atan2(normal.y(), normal.x());
+
+			const int x = ((grid_dim/2)+obstacles->points[idx].x/m_per_cell);
+			const int y = ((grid_dim/2)+obstacles->points[idx].y/m_per_cell);
+
+			// if (x >= 0 && x < grid_dim && y >= 0 && y < grid_dim){
+			// 	field[x][y] = normal;
+			// 	++cnt[x][y];
+			// }
+			// continue;
+
+			using std::cout;
+			using std::endl;
+			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta || theta < -3*M_PI/4)){
+				i = x;
+				i_max = range * cos(theta) / m_per_cell;
+				is2x = true;
+			}else{ // y
+				i = y;
+				i_max = range * sin(theta) / m_per_cell;
+				is2x = false;
+			}
+
+			if(i < 0 || i > grid_dim){ continue; }
 
 			while(1){
-				if(direction){ y = i * tan(theta);
-				}else{ x = i / tan(theta); }
-				if(-M_PI/4 <= theta && theta < 3*M_PI){ // +
+				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
 					++i;
-					if(direction ? (i < 0 || i < x + i_max) : (i < 0 || i < y + i_max)){ break; }
+					if(is2x ? i>grid_dim || i > x+i_max : i>grid_dim || i > y+i_max){ break; }
 				}else{ // -
 					--i;
-					if(direction ? i>grid_dim || i > x+i_max : i>grid_dim || i > y+i_max) break;
+					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
 				}
-				if(direction){
-					if(y >= 0 && y < grid_dim){
-						if(!init[i][y]){
-							field[i][y] = 1.0 / (x/cos(theta)) * normal;
-							init[i][y] = true;
-						}else{
-							field[i][y] += 1.0 / (x/cos(theta)) * normal;
-						}
-					}
-				}else{
-					if(x >= 0 && x < grid_dim){
-						if(!init[x][i]){
-							field[x][i] = 1.0 / (x/cos(theta)) * normal;
-							init[x][i] = true;
-						}else{
-							field[x][i] += 1.0 / (x/cos(theta)) * normal;
-						}
+				if(is2x){ j = y + (i-x) * tan(theta);
+				}else{ j = x + (i-y) / tan(theta); }
+				if(j >= 0 && j < grid_dim){
+					if(is2x){
+						field[i][j] += (1 - mmath::logistic(abs(i-x))) * normal;
+						// field[i][j] += normal;
+						++cnt[i][j];
+						// field[i][j].normalize();
+					}else{
+						field[j][i] += (1 - mmath::logistic(abs(i-y))) * normal;
+						// field[j][i] += normal;
+						++cnt[j][i];
+						// field[j][i].normalize();
 					}
 				}
 			}
 		}
+		for(int i = 0; i < grid_dim; ++i){
+			for(int j = 0; j < grid_dim; ++j){
+				if(field[i][j].x() || field[i][j].y()){
+					field[i][j] = 1.0/cnt[i][j] * field[i][j];
+					// field[i][j].normalize();
+				}
+			}
+		}
+		// publish(); // for debug
 	}
 	
+	void VectorField::publish()
+	{
+		visualization_msgs::Marker arrow;
+
+		// marker.header.frame_id = "/map";
+		arrow.header.stamp = ros::Time::now();
+		arrow.header.frame_id = "/velodyne";
+
+		arrow.ns = "/vf/arrow";
+		int id = 0;
+
+		arrow.type = visualization_msgs::Marker::ARROW;
+		arrow.action = visualization_msgs::Marker::ADD;
+		// arrow.action = visualization_msgs::Marker::DELETE;
+		// arrow.action = visualization_msgs::Marker::DELETEALL;
+
+		arrow.scale.x = 0.3; // length
+		// arrow.scale.x = 1.0; // length
+		arrow.scale.y = 0.06; // width
+		arrow.scale.z = 0.06; // height
+
+		arrow.color.r = 0.8f;
+		arrow.color.g = 0.1f;
+		arrow.color.b = 1.0f;
+		arrow.color.a = 0.6;
+
+		// arrow.lifetime = ros::Duration(1.0);
+
+		visualization_msgs::MarkerArray markers;
+
+		double grid_offset=grid_dim/2.0*m_per_cell;
+
+		arrow.pose.position.z = 0.0;
+		double yaw;
+
+		for(int i = 0; i < grid_dim; ++i){
+			for(int j = 0; j < grid_dim; ++j){
+				if(field[i][j].x() || field[i][j].y()){
+					arrow.pose.position.x = -grid_offset + (i*m_per_cell+m_per_cell/2.0);
+					arrow.pose.position.y = -grid_offset + (j*m_per_cell+m_per_cell/2.0);
+					yaw = atan2(field[i][j].y(), field[i][j].x());
+					arrow.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+					arrow.id = id;
+					arrow.scale.x = sqrt(pow(field[i][j].x(),2) + pow(field[i][j].y(), 2));
+					markers.markers.push_back(arrow);
+					++id;
+				}
+			}
+		}
+
+		_publisher.publish(markers);
+	}
+
 } // namespace normal_reaction_force

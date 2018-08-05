@@ -26,6 +26,8 @@ namespace normal_reaction_force{
 	typedef pcl::PointCloud<PointN> pcNormal;
 	typedef pcNormal::Ptr pcNormalPtr;
 
+	typedef std::vector< std::vector<Eigen::Vector2d> > Field;
+
 	struct State4d{
 		Eigen::Vector2d position;
 		Eigen::Vector2d velocity;
@@ -54,6 +56,7 @@ namespace normal_reaction_force{
 		template<class T_src, class T_tgt>
 		double distance(const T_src&, const T_tgt&);
 		void constructGrid();
+		void publish();
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;
@@ -62,7 +65,8 @@ namespace normal_reaction_force{
 
 		int grid_dim; // grid_dimensions [個]
 		double m_per_cell; // cell_size [m]
-		double range; // max distance to obstacle with influence [m]
+		Field field;
+					double range; // max distance to obstacle with influence [m]
 		double expand; // safe margin of Obstacle[m]
 		double step_size; // 何秒先までみるか[s]
 
