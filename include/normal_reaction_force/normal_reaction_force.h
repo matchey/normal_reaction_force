@@ -33,12 +33,6 @@ namespace normal_reaction_force{
 		Eigen::Vector2d velocity;
 	};
 
-	struct Obstacle{
-		Eigen::Vector2d position;
-		Eigen::Vector2d normal;
-		Eigen::Vector2d velocity;
-	};
-
 	class VectorField{
 		public:
 		VectorField();
@@ -49,14 +43,10 @@ namespace normal_reaction_force{
 		void velocityConversion(const State4d&, Eigen::Vector2d&);
 
 		private:
-		// void callback();
-		bool isOnLine(const PointN&); // in setObsOnLine()
-		void setObsOnLine(pcNormalPtr&); // in clustering()
-		void clustering(); // in velocityConversion()
 		template<class T_src, class T_tgt>
 		double distance(const T_src&, const T_tgt&);
 		void constructGrid();
-		void publish();
+		void publish(); // for debug
 
 		// subscribeとかは他のノードでやって、フィールド作るだけのクラスにするか
 		// ros::Subscriber obstacle_subscriber;
@@ -66,12 +56,11 @@ namespace normal_reaction_force{
 		int grid_dim; // grid_dimensions [個]
 		double m_per_cell; // cell_size [m]
 		Field field;
-					double range; // max distance to obstacle with influence [m]
+		double range; // max distance to obstacle with influence [m]
 		double expand; // safe margin of Obstacle[m]
 		double step_size; // 何秒先までみるか[s]
 
 		pcNormalPtr obstacles;
-		std::vector<Obstacle> clusters; // obstacle(x, y, normal_x, normal_y, vx, vy)
 		State4d own; // (x, y, vx, vy)
 	};
 
