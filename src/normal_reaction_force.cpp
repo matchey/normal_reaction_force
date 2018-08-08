@@ -20,7 +20,7 @@
 namespace normal_reaction_force{
 
 	VectorField::VectorField()
-		: own({{0,0}, {0,0}})
+		// : own({{0,0}, {0,0}})
 	{
 		// ros::param::param<double>
 		// 	("/normal_reaction_force/range", range, 1.2);
@@ -35,14 +35,14 @@ namespace normal_reaction_force{
 			("/normal_reaction_force/expand", expand, 0.1);
 
 		ros::param::param<double>
-			("/normal_reaction_force/step_size", step_size, 3);
+			("/path_prediction/step_size", step_size, 40);
 
 		field.resize(grid_dim);
 		for(int i=0; i<grid_dim; ++i){
 			field[i].resize(grid_dim);
 		}
 
-		range = step_size * 1.1 + expand; // velocity = 1.1 [m/s]
+		range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
 
 		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
@@ -56,27 +56,30 @@ namespace normal_reaction_force{
 		constructGrid();
 	}
 
-	void VectorField::setHumans(const vmsgs::MarkerArray::ConstPtr& humans)
+	// void VectorField::setHumans(const vmsgs::MarkerArray::ConstPtr& humans)
+	// {
+	// }
+
+	void VectorField::velocityConversion(std::vector<State4d>& humans)
 	{
 	}
+	
+	// void VectorField::velocityConversion(State4d& own_state)
+	// {
+	// 	// own = own_state;
+    //
+    //
+	// 	// const double speed = own.velocity.norm();
+	// }
 
-	void VectorField::velocityConversion(State4d& own_state)
-	{
-		own = own_state;
-
-		clustering(); // own.positionに向かう法線を持つobstalceをclustering
-
-		const double speed = own.velocity.norm();
-	}
-
-	template<class T_src, class T_tgt>
-	double VectorField::distance(const T_src& pos_src, const T_tgt& pos_tgt)
-	{
-		return sqrt(pow(pos_src.x() - pos_tgt.x, 2) + pow(pos_src.y() - pos_tgt.y, 2));
-	}
-
-	template double VectorField::distance(const Eigen::Vector2d&, const geometry_msgs::Point&);
-	template double VectorField::distance(const Eigen::Vector2d&, const PointN&);
+	// template<class T_src, class T_tgt>
+	// double VectorField::distance(const T_src& pos_src, const T_tgt& pos_tgt)
+	// {
+	// 	return sqrt(pow(pos_src.x() - pos_tgt.x, 2) + pow(pos_src.y() - pos_tgt.y, 2));
+	// }
+    //
+	// template double VectorField::distance(const Eigen::Vector2d&, const geometry_msgs::Point&);
+	// template double VectorField::distance(const Eigen::Vector2d&, const PointN&);
 
 	void VectorField::constructGrid()
 	{
@@ -105,8 +108,6 @@ namespace normal_reaction_force{
 			const int x = ((grid_dim/2)+obstacles->points[idx].x/m_per_cell);
 			const int y = ((grid_dim/2)+obstacles->points[idx].y/m_per_cell);
 
-			using std::cout;
-			using std::endl;
 			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta || theta < -3*M_PI/4)){
 				i = x;
 				i_max = range * cos(theta) / m_per_cell;
