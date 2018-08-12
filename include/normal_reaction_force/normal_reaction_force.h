@@ -12,7 +12,6 @@
 #define NORMAL_REACTION_FORCE_H
 
 #include <ros/ros.h>
-#include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -38,31 +37,31 @@ namespace normal_reaction_force{
 		VectorField();
 		~VectorField();
 		void setObstacles(const pcNormalPtr&);
-		// void setHumans(const vmsgs::MarkerArray::ConstPtr&);
+		void setDistances(const std::vector<State4d>&, const unsigned&);
 		void velocityConversion(std::vector<State4d>&);
-		// void velocityConversion(State4d&);
-		// void velocityConversion(const State4d&, Eigen::Vector2d&);
 
 		private:
-		// template<class T_src, class T_tgt>
-		// double distance(const T_src&, const T_tgt&);
 		void constructGrid(); // create vector field
+		void setDistances(const std::vector<State4d>&);
+		double distance(const Eigen::Vector2d&, const Eigen::Vector2d&);
 
-		void publish(); // for debug
+		// void publish(); // for debug
 
-		ros::NodeHandle node; // for debug
-		ros::Publisher _publisher; // for debug
+		// ros::NodeHandle node; // for debug
+		// ros::Publisher _publisher; // for debug
 
 		Field field; // normal vector field
 		int grid_dim; // grid_dimensions [個]
 		double m_per_cell; // cell_size [m]
 
+		pcNormalPtr obstacles;
+		Eigen::MatrixXd distances;
+		// Eigen::MatrixXd<bool> in_range;
+		unsigned nhumans;
+
 		double range; // max distance to obstacle with influence [m]
 		double expand; // safe margin of Obstacle[m]
 		double step_size; // 何ステップ先までみるか[回]
-
-		pcNormalPtr obstacles;
-		// State4d own; // (x, y, vx, vy)
 	};
 
 } // namespace normal_reaction_force

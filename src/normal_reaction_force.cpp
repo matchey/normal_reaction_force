@@ -8,9 +8,13 @@
 // memo:
 //
 
-#include <sensor_msgs/PointCloud2.h> // for debug
-#include <pcl_conversions/pcl_conversions.h> // for debug
-#include <tf/transform_broadcaster.h> // for debug
+/** for debug **/
+// #include <sensor_msgs/PointCloud2.h>
+// #include <pcl_conversions/pcl_conversions.h>
+// #include <tf/transform_broadcaster.h>
+// #include <visualization_msgs/Marker.h>
+/** for debug **/
+
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include "mmath/binarion.h"
@@ -20,11 +24,7 @@
 namespace normal_reaction_force{
 
 	VectorField::VectorField()
-		// : own({{0,0}, {0,0}})
 	{
-		// ros::param::param<double>
-		// 	("/normal_reaction_force/range", range, 1.2);
-
 		ros::param::param<int>
 			("/normal_reaction_force/grid_dimensions", grid_dim, 320);
 
@@ -45,7 +45,7 @@ namespace normal_reaction_force{
 		range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
 
 		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
-		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
+		// _publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
 	}
 
 	VectorField::~VectorField() {}
@@ -56,45 +56,60 @@ namespace normal_reaction_force{
 		constructGrid();
 	}
 
-	// void VectorField::setHumans(const vmsgs::MarkerArray::ConstPtr& humans)
-	// {
-	// }
+	void VectorField::setDistances(const std::vector<State4d>& humans, const unsigned& nums)
+	{
+		nhumans = nums;
+		distances.resize(nhumans, nhumans);
+		// in_range.resize(nhumans, nhumans);
+
+		double dist;
+		for(unsigned i = 0; i < nhumans; ++i){
+			distances.coeffRef(i, i) = 0;
+			for(unsigned j = i+1; j < nhumans; ++j){
+				dist = distance(humans[i].position, humans[j].position);
+				distances.coeffRef(i, j) = dist;
+				distances.coeffRef(j, i) = dist;
+			}
+		}
+	}
 
 	void VectorField::velocityConversion(std::vector<State4d>& humans)
 	{
+		setDistances(humans);
+
+		Eigen::Vector2d obs_normal;
+		Eigen::Vector2d human_normal;
+
+		// (1 - mmath::logistic(abs(i-y))) * normal
+
+		// double grid_offset=grid_dim/2.0*m_per_cell;
+		// arrow.pose.position.x = -grid_offset + (i*m_per_cell+m_per_cell/2.0);
+		// arrow.pose.position.y = -grid_offset + (j*m_per_cell+m_per_cell/2.0);
+		for(unsigned idx = 0; idx < nhumans; ++idx){
+			int row = (grid_dim/2) + humans[idx].position.x() / m_per_cell;
+			int col = (grid_dim/2) + humans[idx].position.y() / m_per_cell;
+			if(0 <= row && row < grid_dim && 0 <= col && col < grid_dim){
+				obs_normal = field[row][col];
+			}
+
+			if(field[row][col].x() || field[row][col].y()){
+			}
+		}
 	}
-	
-	// void VectorField::velocityConversion(State4d& own_state)
-	// {
-	// 	// own = own_state;
-    //
-    //
-	// 	// const double speed = own.velocity.norm();
-	// }
 
-	// template<class T_src, class T_tgt>
-	// double VectorField::distance(const T_src& pos_src, const T_tgt& pos_tgt)
-	// {
-	// 	return sqrt(pow(pos_src.x() - pos_tgt.x, 2) + pow(pos_src.y() - pos_tgt.y, 2));
-	// }
-    //
-	// template double VectorField::distance(const Eigen::Vector2d&, const geometry_msgs::Point&);
-	// template double VectorField::distance(const Eigen::Vector2d&, const PointN&);
-
+	// private
 	void VectorField::constructGrid()
 	{
 		int cnt[grid_dim][grid_dim];
-		for (int x = 0; x < grid_dim; x++) {
-			for (int y = 0; y < grid_dim; y++) {
+		for(int x = 0; x < grid_dim; x++){
+			for(int y = 0; y < grid_dim; y++){
 				cnt[x][y] = 0;
 			}
 		}
-
 		Eigen::Vector2d v = {0.0, 0.0};
 		for(int i = 0; i<grid_dim; ++i){
 			std::fill(field[i].begin(), field[i].end(), v);
 		}
-
 		unsigned npoints = obstacles->points.size();
 		for(unsigned idx = 0; idx < npoints; ++idx){
 			int i = 0, j = 0;
@@ -117,9 +132,7 @@ namespace normal_reaction_force{
 				i_max = range * sin(theta) / m_per_cell;
 				is2x = false;
 			}
-
 			if(i < 0 || i > grid_dim){ continue; }
-
 			while(1){
 				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
 					++i;
@@ -150,58 +163,75 @@ namespace normal_reaction_force{
 		}
 		// publish(); // for debug
 	}
-	
-	void VectorField::publish()
+
+	void VectorField::setDistances(const std::vector<State4d>& humans)
 	{
-		visualization_msgs::Marker arrow;
-
-		// marker.header.frame_id = "/map";
-		arrow.header.stamp = ros::Time::now();
-		arrow.header.frame_id = "/velodyne";
-
-		arrow.ns = "/vf/arrow";
-		int id = 0;
-
-		arrow.type = visualization_msgs::Marker::ARROW;
-		arrow.action = visualization_msgs::Marker::ADD;
-		// arrow.action = visualization_msgs::Marker::DELETE;
-		// arrow.action = visualization_msgs::Marker::DELETEALL;
-
-		arrow.scale.x = 0.3; // length
-		// arrow.scale.x = 1.0; // length
-		arrow.scale.y = 0.06; // width
-		arrow.scale.z = 0.06; // height
-
-		arrow.color.r = 0.8f;
-		arrow.color.g = 0.1f;
-		arrow.color.b = 1.0f;
-		arrow.color.a = 0.6;
-
-		// arrow.lifetime = ros::Duration(1.0);
-
-		visualization_msgs::MarkerArray markers;
-
-		double grid_offset=grid_dim/2.0*m_per_cell;
-
-		arrow.pose.position.z = 0.0;
-		double yaw;
-
-		for(int i = 0; i < grid_dim; ++i){
-			for(int j = 0; j < grid_dim; ++j){
-				if(field[i][j].x() || field[i][j].y()){
-					arrow.pose.position.x = -grid_offset + (i*m_per_cell+m_per_cell/2.0);
-					arrow.pose.position.y = -grid_offset + (j*m_per_cell+m_per_cell/2.0);
-					yaw = atan2(field[i][j].y(), field[i][j].x());
-					arrow.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
-					arrow.id = id;
-					arrow.scale.x = sqrt(pow(field[i][j].x(),2) + pow(field[i][j].y(), 2));
-					markers.markers.push_back(arrow);
-					++id;
-				}
+		double dist;
+		for(unsigned i = 0; i < nhumans; ++i){
+			for(unsigned j = i+1; j < nhumans; ++j){
+				dist = distance(humans[i].position, humans[j].position);
+				distances.coeffRef(i, j) = dist;
+				distances.coeffRef(j, i) = dist;
 			}
 		}
-
-		_publisher.publish(markers);
 	}
+
+	double VectorField::distance(const Eigen::Vector2d& p1, const Eigen::Vector2d& p2)
+	{
+		return sqrt(pow(p1.x() - p2.x(), 2) + pow(p1.y() - p2.y(), 2));
+	}
+	
+	// void VectorField::publish()
+	// {
+	// 	visualization_msgs::Marker arrow;
+    //
+	// 	// marker.header.frame_id = "/map";
+	// 	arrow.header.stamp = ros::Time::now();
+	// 	arrow.header.frame_id = "/velodyne";
+    //
+	// 	arrow.ns = "/vf/arrow";
+	// 	int id = 0;
+    //
+	// 	arrow.type = visualization_msgs::Marker::ARROW;
+	// 	arrow.action = visualization_msgs::Marker::ADD;
+	// 	// arrow.action = visualization_msgs::Marker::DELETE;
+	// 	// arrow.action = visualization_msgs::Marker::DELETEALL;
+    //
+	// 	arrow.scale.x = 0.3; // length
+	// 	// arrow.scale.x = 1.0; // length
+	// 	arrow.scale.y = 0.06; // width
+	// 	arrow.scale.z = 0.06; // height
+    //
+	// 	arrow.color.r = 0.8f;
+	// 	arrow.color.g = 0.1f;
+	// 	arrow.color.b = 1.0f;
+	// 	arrow.color.a = 0.6;
+    //
+	// 	// arrow.lifetime = ros::Duration(1.0);
+    //
+	// 	visualization_msgs::MarkerArray markers;
+    //
+	// 	double grid_offset=grid_dim/2.0*m_per_cell;
+    //
+	// 	arrow.pose.position.z = 0.0;
+	// 	double yaw;
+    //
+	// 	for(int i = 0; i < grid_dim; ++i){
+	// 		for(int j = 0; j < grid_dim; ++j){
+	// 			if(field[i][j].x() || field[i][j].y()){
+	// 				arrow.pose.position.x = -grid_offset + (i*m_per_cell+m_per_cell/2.0);
+	// 				arrow.pose.position.y = -grid_offset + (j*m_per_cell+m_per_cell/2.0);
+	// 				yaw = atan2(field[i][j].y(), field[i][j].x());
+	// 				arrow.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+	// 				arrow.id = id;
+	// 				arrow.scale.x = sqrt(pow(field[i][j].x(),2) + pow(field[i][j].y(), 2));
+	// 				markers.markers.push_back(arrow);
+	// 				++id;
+	// 			}
+	// 		}
+	// 	}
+    //
+	// 	_publisher.publish(markers);
+	// }
 
 } // namespace normal_reaction_force
