@@ -44,11 +44,12 @@ namespace normal_reaction_force{
 		void constructGrid(); // create vector field
 		void setDistances(const std::vector<State4d>&);
 		double distance(const Eigen::Vector2d&, const Eigen::Vector2d&);
+		void fill(Field&, const Eigen::Vector2d&);
 
-		// void publish(); // for debug
+		void publish(); // for debug
 
-		// ros::NodeHandle node; // for debug
-		// ros::Publisher _publisher; // for debug
+		ros::NodeHandle node; // for debug
+		ros::Publisher _publisher; // for debug
 
 		Field field; // normal vector field
 		int grid_dim; // grid_dimensions [個]
