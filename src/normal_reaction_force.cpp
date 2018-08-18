@@ -77,29 +77,37 @@ namespace normal_reaction_force{
 	{
 		setDistances(humans);
 
-		// Eigen::Vector2d obs_normal;
 		Eigen::Vector2d human_normal;
+		Eigen::Vector2d human_force;
+		Eigen::Vector2d other2own;
 
 		std::vector<Eigen::Vector2d> velocity_converted;
 		velocity_converted.resize(nhumans);
 
-		// double grid_offset=grid_dim/2.0*m_per_cell;
-		// arrow.pose.position.x = -grid_offset + (i*m_per_cell+m_per_cell/2.0);
-		// arrow.pose.position.y = -grid_offset + (j*m_per_cell+m_per_cell/2.0);
 		for(unsigned idx = 0; idx < nhumans; ++idx){
 			int row = (grid_dim/2) + humans[idx].position.x() / m_per_cell;
 			int col = (grid_dim/2) + humans[idx].position.y() / m_per_cell;
 			velocity_converted[idx] = humans[idx].velocity;
 			if(0 <= row && row < grid_dim && 0 <= col && col < grid_dim){
 				if(field[row][col].x() || field[row][col].y()){
-					// obs_normal = field[row][col];
 					double dot_prod = humans[idx].velocity.dot(field[row][col]);
 					if(dot_prod < 0){
 						velocity_converted[idx] -= dot_prod * field[row][col];
 					}
 				}
 			}
-			// human_nomal
+			human_force = {0.0, 0.0};
+			for(unsigned i = 0; i < nhumans; ++i){
+				if(i != idx && distances.coeff(idx, i) < range){
+					other2own = (humans[idx].position - humans[i].position).normalized();
+					human_normal = (1 - mmath::logistic(distances.coeff(idx, i))) * other2own;
+					double dot_prod = (humans[idx].velocity - humans[i].velocity).dot(human_normal);
+					if(dot_prod < 0){
+						human_force += dot_prod * human_normal;
+					}
+				}
+			}
+			velocity_converted[idx] += human_force;
 		}
 		for(unsigned idx = 0; idx < nhumans; ++idx){
 			if(humans[idx].velocity.normalized().dot(velocity_converted[idx].normalized()) < 0.4){
