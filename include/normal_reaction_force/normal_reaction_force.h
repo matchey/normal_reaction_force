@@ -42,8 +42,14 @@ namespace normal_reaction_force{
 
 		private:
 		void constructGrid(); // create vector field
-		void setDistances(const std::vector<State4d>&);
-		double distance(const Eigen::Vector2d&, const Eigen::Vector2d&);
+
+		void setDirections(Field&); // calclate directions of vector field
+		void setMagnitudes(); // calclate magnitude of vector field
+
+		void getGridRange(int&, double&, bool&); // calclate i, i_max, is2x
+
+		void setDistances(const std::vector<State4d>&); // set distances of human to human
+		double distance(const Eigen::Vector2d&, const Eigen::Vector2d&); // human[i] to human[j]
 		void fill(Field&, const Eigen::Vector2d&);
 
 		void publish(); // for debug
@@ -55,6 +61,7 @@ namespace normal_reaction_force{
 		int grid_dim; // grid_dimensions [個]
 		double m_per_cell; // cell_size [m]
 
+		unsigned npoints;
 		pcNormalPtr obstacles;
 		Eigen::MatrixXd distances;
 		// Eigen::MatrixXd<bool> in_range;

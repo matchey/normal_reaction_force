@@ -42,7 +42,8 @@ namespace normal_reaction_force{
 			field[i].resize(grid_dim);
 		}
 
-		range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
+		// range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
+		range = 1.1 * 2 + expand; // velocity = 1.1 [m/s], time = 2 [s]
 
 		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
@@ -53,6 +54,7 @@ namespace normal_reaction_force{
 	void VectorField::setObstacles(const pcNormalPtr& obs_cloud)
 	{
 		obstacles = obs_cloud;
+		npoints = obstacles->points.size();
 		constructGrid();
 	}
 
@@ -103,23 +105,25 @@ namespace normal_reaction_force{
 					human_normal = (1 - mmath::logistic(distances.coeff(idx, i))) * other2own;
 					double dot_prod = (humans[idx].velocity - humans[i].velocity).dot(human_normal);
 					if(dot_prod < 0){
-						human_force += dot_prod * human_normal;
+						human_force += 0.01 * dot_prod * human_normal;
 					}
 				}
 			}
-			velocity_converted[idx] += human_force;
+			velocity_converted[idx] -= human_force;
 		}
 		for(unsigned idx = 0; idx < nhumans; ++idx){
 			if(humans[idx].velocity.normalized().dot(velocity_converted[idx].normalized()) < 0.4){
-				humans[idx].velocity = {0.0, 0.0};
+				humans[idx].velocity *= 0.01;
 			}else{
 				double norm_bfr = humans[idx].velocity.norm();
 				double norm_aft = velocity_converted[idx].norm();
 				if(norm_bfr < norm_aft){
-					humans[idx].velocity = norm_bfr / norm_aft * velocity_converted[idx];
+					// humans[idx].velocity = norm_bfr / norm_aft * velocity_converted[idx];
+					velocity_converted[idx] *= norm_bfr / norm_aft;
 				}else{
-					humans[idx].velocity = velocity_converted[idx];
+					// humans[idx].velocity = velocity_converted[idx];
 				}
+				humans[idx].velocity = 0.2 * velocity_converted[idx] + 0.8 * humans[idx].velocity;
 			}
 		}
 	}
@@ -133,8 +137,6 @@ namespace normal_reaction_force{
 
 		std::fill(cnt[0], cnt[grid_dim], 0);
 		fill(field, Eigen::MatrixXd::Zero(2, 1));
-
-		const unsigned npoints = obstacles->points.size();
 
 		for(unsigned idx = 0; idx < npoints; ++idx){
 			int i = 0, j = 0;
@@ -191,18 +193,127 @@ namespace normal_reaction_force{
 					Eigen::Vector2d prodave(ave.x()*ave.x(), ave.y()*ave.y());
 					var = prodsum[i][j] / cnt[i][j] - prodave;
 
-					field[i][j].x() = 3 * ave.x() * (1 - var.x());
-					field[i][j].y() = 3 * ave.y() * (1 - var.y());
+					field[i][j].x() = 1 * ave.x() * (1 - var.x());
+					field[i][j].y() = 1 * ave.y() * (1 - var.y());
 				}
 			}
 		}
-		// static int m_pub = 0;
-		// if(m_pub == 20){
-		// 	publish(); // for debug
-		// 	m_pub = 0;
-		// }else{
-		// 	++m_pub;
-		// }
+		static int m_pub = 0;
+		if(m_pub == 20){
+			publish(); // for debug
+			m_pub = 0;
+		}else{
+			++m_pub;
+		}
+	}
+
+	void VectorField::setDirections(Field& direct, const bool flag_direct)
+	{
+		fill(direct, Eigen::MatrixXd::Zero(2, 1));
+
+		for(unsigned idx = 0; idx < npoints; ++idx){
+			int i = 0, j = 0;
+			double i_max;
+			bool is2x; // direction{ x:true, y:false }
+
+			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
+										    -obstacles->points[idx].normal_y};
+			const double theta = atan2(normal.y(), normal.x());
+
+			const int x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
+			const int y = ((grid_dim/2) + obstacles->points[idx].y / m_per_cell);
+
+			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta || theta < -3*M_PI/4)){
+				i = x;
+				i_max = range * cos(theta) / m_per_cell;
+				is2x = true;
+			}else{ // y
+				i = y;
+				i_max = range * sin(theta) / m_per_cell;
+				is2x = false;
+			}
+			if(i < 0 || i >= grid_dim){ continue; }
+			while(1){
+				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
+					++i;
+					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
+				}else{ // -
+					--i;
+					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
+				}
+				if(is2x){
+					j = y + (i-x) * tan(theta);
+				}else{
+					j = x + (i-y) / tan(theta);
+				}
+				if(j >= 0 && j < grid_dim){
+					int row = j; int col = i; int dist_of = y;
+					if(is2x){
+						row = i; col = j; dist_of = x;
+					}
+					Eigen::Vector2d force = (1 - mmath::logistic(abs(i-dist_of))) * normal;
+					direct[row][col] += force;
+				}
+			}
+		}
+	}
+
+	void VectorField::setMagnitudes()
+	{
+		int cnt[grid_dim][grid_dim];
+		Field magni(grid_dim, std::vector<Eigen::Vector2d>(grid_dim, Eigen::MatrixXd::Zero(2, 1)));
+
+		std::fill(cnt[0], cnt[grid_dim], 0);
+		fill(magni, Eigen::MatrixXd::Zero(2, 1));
+
+		for(unsigned idx = 0; idx < npoints; ++idx){
+			int i = 0, j = 0;
+			double i_max;
+			bool is2x; // direction{ x:true, y:false }
+
+			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
+										    -obstacles->points[idx].normal_y};
+			const double theta = atan2(normal.y(), normal.x());
+
+			const int x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
+			const int y = ((grid_dim/2) + obstacles->points[idx].y / m_per_cell);
+
+			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta || theta < -3*M_PI/4)){
+				i = x;
+				i_max = range * cos(theta) / m_per_cell;
+				is2x = true;
+			}else{ // y
+				i = y;
+				i_max = range * sin(theta) / m_per_cell;
+				is2x = false;
+			}
+			if(i < 0 || i >= grid_dim){ continue; }
+			while(1){
+				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
+					++i;
+					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
+				}else{ // -
+					--i;
+					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
+				}
+				if(is2x){
+					j = y + (i-x) * tan(theta);
+				}else{
+					j = x + (i-y) / tan(theta);
+				}
+				if(j >= 0 && j < grid_dim){
+					int row = j; int col = i; int dist_of = y;
+					if(is2x){
+						row = i; col = j; dist_of = x;
+					}
+					if(field[row][col].normalized().dot(normal) > 0.99){
+						Eigen::Vector2d force = (1 - mmath::logistic(abs(i-dist_of))) * normal;
+						magni[row][col] += force;
+						++cnt[row][col];
+					}
+				}
+			}
+		}
 	}
 
 	void VectorField::setDistances(const std::vector<State4d>& humans)
