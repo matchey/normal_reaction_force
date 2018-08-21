@@ -131,11 +131,20 @@ namespace normal_reaction_force{
 	// private
 	void VectorField::constructGrid()
 	{
-		Eigen::Vector2d ave, var;
-		Field prodsum(grid_dim, std::vector<Eigen::Vector2d>(grid_dim, Eigen::MatrixXd::Zero(2, 1)));
-		int cnt[grid_dim][grid_dim];
+		setDirections();
+		setMagnitudes();
 
-		std::fill(cnt[0], cnt[grid_dim], 0);
+		static int m_pub = 0;
+		if(m_pub == 20){
+			publish(); // for debug
+			m_pub = 0;
+		}else{
+			++m_pub;
+		}
+	}
+
+	void VectorField::setDirections()
+	{
 		fill(field, Eigen::MatrixXd::Zero(2, 1));
 
 		for(unsigned idx = 0; idx < npoints; ++idx){
@@ -178,81 +187,7 @@ namespace normal_reaction_force{
 					if(is2x){
 						row = i; col = j; dist_of = x;
 					}
-					Eigen::Vector2d force = (1 - mmath::logistic(abs(i-dist_of))) * normal;
-					field[row][col] += force;
-					prodsum[row][col].x() += force.x() * force.x();
-					prodsum[row][col].y() += force.y() * force.y();
-					++cnt[row][col];
-				}
-			}
-		}
-		for(int i = 0; i < grid_dim; ++i){
-			for(int j = 0; j < grid_dim; ++j){
-				if(field[i][j].x() || field[i][j].y()){
-					ave = field[i][j] / cnt[i][j];
-					Eigen::Vector2d prodave(ave.x()*ave.x(), ave.y()*ave.y());
-					var = prodsum[i][j] / cnt[i][j] - prodave;
-
-					field[i][j].x() = 1 * ave.x() * (1 - var.x());
-					field[i][j].y() = 1 * ave.y() * (1 - var.y());
-				}
-			}
-		}
-		static int m_pub = 0;
-		if(m_pub == 20){
-			publish(); // for debug
-			m_pub = 0;
-		}else{
-			++m_pub;
-		}
-	}
-
-	void VectorField::setDirections(Field& direct, const bool flag_direct)
-	{
-		fill(direct, Eigen::MatrixXd::Zero(2, 1));
-
-		for(unsigned idx = 0; idx < npoints; ++idx){
-			int i = 0, j = 0;
-			double i_max;
-			bool is2x; // direction{ x:true, y:false }
-
-			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
-										    -obstacles->points[idx].normal_y};
-			const double theta = atan2(normal.y(), normal.x());
-
-			const int x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
-			const int y = ((grid_dim/2) + obstacles->points[idx].y / m_per_cell);
-
-			if((-M_PI/4 <= theta && theta < M_PI/4) || (3*M_PI/4 <= theta || theta < -3*M_PI/4)){
-				i = x;
-				i_max = range * cos(theta) / m_per_cell;
-				is2x = true;
-			}else{ // y
-				i = y;
-				i_max = range * sin(theta) / m_per_cell;
-				is2x = false;
-			}
-			if(i < 0 || i >= grid_dim){ continue; }
-			while(1){
-				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
-					++i;
-					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
-				}else{ // -
-					--i;
-					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
-				}
-				if(is2x){
-					j = y + (i-x) * tan(theta);
-				}else{
-					j = x + (i-y) / tan(theta);
-				}
-				if(j >= 0 && j < grid_dim){
-					int row = j; int col = i; int dist_of = y;
-					if(is2x){
-						row = i; col = j; dist_of = x;
-					}
-					Eigen::Vector2d force = (1 - mmath::logistic(abs(i-dist_of))) * normal;
-					direct[row][col] += force;
+					field[row][col] +=  (1 - mmath::logistic(abs(i-dist_of))) * normal;
 				}
 			}
 		}
@@ -307,13 +242,20 @@ namespace normal_reaction_force{
 						row = i; col = j; dist_of = x;
 					}
 					if(field[row][col].normalized().dot(normal) > 0.99){
-						Eigen::Vector2d force = (1 - mmath::logistic(abs(i-dist_of))) * normal;
-						magni[row][col] += force;
+						magni[row][col] += (1 - mmath::logistic(abs(i-dist_of))) * normal;
 						++cnt[row][col];
 					}
 				}
 			}
 		}
+		for(int i = 0; i < grid_dim; ++i){
+			for(int j = 0; j < grid_dim; ++j){
+				if(magni[i][j].x() || magni[i][j].y()){
+					magni[i][j] /= cnt[i][j];
+				}
+			}
+		}
+		field = magni;
 	}
 
 	void VectorField::setDistances(const std::vector<State4d>& humans)

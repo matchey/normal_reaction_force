@@ -42,11 +42,8 @@ namespace normal_reaction_force{
 
 		private:
 		void constructGrid(); // create vector field
-
-		void setDirections(Field&); // calclate directions of vector field
+		void setDirections(); // calclate directions of vector field
 		void setMagnitudes(); // calclate magnitude of vector field
-
-		void getGridRange(int&, double&, bool&); // calclate i, i_max, is2x
 
 		void setDistances(const std::vector<State4d>&); // set distances of human to human
 		double distance(const Eigen::Vector2d&, const Eigen::Vector2d&); // human[i] to human[j]
