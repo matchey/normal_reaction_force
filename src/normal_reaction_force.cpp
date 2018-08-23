@@ -26,10 +26,10 @@ namespace normal_reaction_force{
 	VectorField::VectorField()
 	{
 		ros::param::param<int>
-			("/normal_reaction_force/grid_dimensions", grid_dim, 320);
+			("/normal_reaction_force/grid_dimensions", grid_dim, 280);
 
 		ros::param::param<double>
-			("/normal_reaction_force/cell_size", m_per_cell, 0.3);
+			("/normal_reaction_force/cell_size", m_per_cell, 0.2);
 
 		ros::param::param<double>
 			("/normal_reaction_force/expand", expand, 0.1);
@@ -43,7 +43,7 @@ namespace normal_reaction_force{
 		}
 
 		// range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
-		range = 1.1 * 2 + expand; // velocity = 1.1 [m/s], time = 2 [s]
+		range = 1.1 * 2; // velocity = 1.1 [m/s], time = 2 [s]
 
 		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
@@ -69,19 +69,21 @@ namespace normal_reaction_force{
 			distances.coeffRef(i, i) = 0;
 			for(unsigned j = i+1; j < nhumans; ++j){
 				dist = distance(humans[i].position, humans[j].position);
-				distances.coeffRef(i, j) = dist;
-				distances.coeffRef(j, i) = dist;
+				distances.coeffRef(i, j) = dist - expand;
+				distances.coeffRef(j, i) = dist - expand;
 			}
 		}
 	}
 
-	void VectorField::velocityConversion(std::vector<State4d>& humans)
+	bool VectorField::velocityConversion(std::vector<State4d>& humans)
 	{
+		bool is_curve = false;
 		setDistances(humans);
 
 		Eigen::Vector2d human_normal;
 		Eigen::Vector2d human_force;
 		Eigen::Vector2d other2own;
+		int human_count;
 
 		std::vector<Eigen::Vector2d> velocity_converted;
 		velocity_converted.resize(nhumans);
@@ -99,22 +101,28 @@ namespace normal_reaction_force{
 				}
 			}
 			human_force = {0.0, 0.0};
+			human_count = 0;
 			for(unsigned i = 0; i < nhumans; ++i){
 				if(i != idx && distances.coeff(idx, i) < range){
 					other2own = (humans[idx].position - humans[i].position).normalized();
 					human_normal = (1 - mmath::logistic(distances.coeff(idx, i))) * other2own;
 					double dot_prod = (humans[idx].velocity - humans[i].velocity).dot(human_normal);
 					if(dot_prod < 0){
-						human_force += 0.01 * dot_prod * human_normal;
+						human_force += dot_prod * human_normal;
+						++human_count;
 					}
 				}
 			}
-			velocity_converted[idx] -= human_force;
+			if(human_count){
+				velocity_converted[idx] -= human_force / human_count;
+			}
 		}
 		for(unsigned idx = 0; idx < nhumans; ++idx){
-			if(humans[idx].velocity.normalized().dot(velocity_converted[idx].normalized()) < 0.4){
+			double curve_rate
+				     = humans[idx].velocity.normalized().dot(velocity_converted[idx].normalized());
+			if(curve_rate < 0.3){
 				humans[idx].velocity *= 0.01;
-			}else{
+			}else if(curve_rate < 0.60){
 				double norm_bfr = humans[idx].velocity.norm();
 				double norm_aft = velocity_converted[idx].norm();
 				if(norm_bfr < norm_aft){
@@ -124,8 +132,12 @@ namespace normal_reaction_force{
 					// humans[idx].velocity = velocity_converted[idx];
 				}
 				humans[idx].velocity = 0.2 * velocity_converted[idx] + 0.8 * humans[idx].velocity;
+				is_curve = true;
+			}else{
+				humans[idx].velocity = velocity_converted[idx];
 			}
 		}
+		return is_curve;
 	}
 
 	// private
@@ -170,13 +182,6 @@ namespace normal_reaction_force{
 			}
 			if(i < 0 || i >= grid_dim){ continue; }
 			while(1){
-				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
-					++i;
-					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
-				}else{ // -
-					--i;
-					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
-				}
 				if(is2x){
 					j = y + (i-x) * tan(theta);
 				}else{
@@ -187,7 +192,14 @@ namespace normal_reaction_force{
 					if(is2x){
 						row = i; col = j; dist_of = x;
 					}
-					field[row][col] +=  (1 - mmath::logistic(abs(i-dist_of))) * normal;
+					field[row][col] +=  (1 - mmath::logistic(abs(i-dist_of) - expand)) * normal;
+				}
+				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
+					++i;
+					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
+				}else{ // -
+					--i;
+					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
 				}
 			}
 		}
@@ -224,13 +236,6 @@ namespace normal_reaction_force{
 			}
 			if(i < 0 || i >= grid_dim){ continue; }
 			while(1){
-				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
-					++i;
-					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
-				}else{ // -
-					--i;
-					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
-				}
 				if(is2x){
 					j = y + (i-x) * tan(theta);
 				}else{
@@ -242,16 +247,27 @@ namespace normal_reaction_force{
 						row = i; col = j; dist_of = x;
 					}
 					if(field[row][col].normalized().dot(normal) > 0.99){
-						magni[row][col] += (1 - mmath::logistic(abs(i-dist_of))) * normal;
+						magni[row][col] += (1 - mmath::logistic(abs(i-dist_of) - expand)) * normal;
 						++cnt[row][col];
 					}
+				}
+				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
+					++i;
+					if(is2x ? i>=grid_dim || i > x+i_max : i>=grid_dim || i > y+i_max){ break; }
+				}else{ // -
+					--i;
+					if(is2x ? i < 0 || i < x + i_max : i < 0 || i < y + i_max){ break; }
 				}
 			}
 		}
 		for(int i = 0; i < grid_dim; ++i){
 			for(int j = 0; j < grid_dim; ++j){
 				if(magni[i][j].x() || magni[i][j].y()){
-					magni[i][j] /= cnt[i][j];
+					if(cnt[i][j] < 2){
+						magni[i][j] = {0.0, 0.0};
+					}else{
+						magni[i][j] /= cnt[i][j];
+					}
 				}
 			}
 		}
@@ -264,8 +280,8 @@ namespace normal_reaction_force{
 		for(unsigned i = 0; i < nhumans; ++i){
 			for(unsigned j = i+1; j < nhumans; ++j){
 				dist = distance(humans[i].position, humans[j].position);
-				distances.coeffRef(i, j) = dist;
-				distances.coeffRef(j, i) = dist;
+				distances.coeffRef(i, j) = dist - expand;
+				distances.coeffRef(j, i) = dist - expand;
 			}
 		}
 	}
