@@ -32,7 +32,7 @@ namespace normal_reaction_force{
 			("/normal_reaction_force/cell_size", m_per_cell, 0.15);
 
 		ros::param::param<double>
-			("/normal_reaction_force/expand", expand, 0.5);
+			("/normal_reaction_force/expand", expand, 0.6);
 
 		ros::param::param<double>
 			("/path_prediction/step_size", step_size, 40);
@@ -43,7 +43,7 @@ namespace normal_reaction_force{
 		}
 
 		// range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
-		range = 1.1 * 3; // velocity = 1.1 [m/s], time = 2 [s]
+		range = 1.1 * 3.5; // velocity [m/s] x time [s]
 
 		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
@@ -189,7 +189,10 @@ namespace normal_reaction_force{
 					if(is2x){
 						row = i; col = j; dist_of = x;
 					}
-					field[row][col] +=  (1 - mmath::logistic(abs(i-dist_of) - expand)) * normal;
+					// double dist = fabs((row-x)*(row-x) + (col-y)*(col-y)) * m_per_cell;
+					// field[row][col] +=  (1 - mmath::logistic(dist - expand)) * normal;
+					double dist = abs(i-dist_of) * m_per_cell;
+					field[row][col] +=  (1 - mmath::logistic(dist - expand)) * normal;
 				}
 				if(-M_PI/4 <= theta && theta < 3*M_PI/4){ // +
 					++i;
@@ -244,7 +247,10 @@ namespace normal_reaction_force{
 						row = i; col = j; dist_of = x;
 					}
 					if(field[row][col].normalized().dot(normal) > 0.99){
-						magni[row][col] += (1 - mmath::logistic(abs(i-dist_of) - expand)) * normal;
+						// double dist = fabs((row-x)*(row-x) + (col-y)*(col-y)) * m_per_cell;
+						// magni[row][col] += (1 - mmath::logistic(dist - expand)) * normal;
+						double dist = abs(i-dist_of) * m_per_cell;
+						magni[row][col] += (1 - mmath::logistic(dist - expand)) * normal;
 						++cnt[row][col];
 					}
 				}
