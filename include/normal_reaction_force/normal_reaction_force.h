@@ -38,7 +38,7 @@ namespace normal_reaction_force{
 		~VectorField();
 		void setObstacles(const pcNormalPtr&);
 		void setDistances(const std::vector<State4d>&, const unsigned&);
-		bool velocityConversion(std::vector<State4d>&);
+		void velocityConversion(std::vector<State4d>&);
 
 		private:
 		void constructGrid(); // create vector field

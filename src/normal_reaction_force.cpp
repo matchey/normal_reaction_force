@@ -29,10 +29,10 @@ namespace normal_reaction_force{
 			("/normal_reaction_force/grid_dimensions", grid_dim, 280);
 
 		ros::param::param<double>
-			("/normal_reaction_force/cell_size", m_per_cell, 0.2);
+			("/normal_reaction_force/cell_size", m_per_cell, 0.15);
 
 		ros::param::param<double>
-			("/normal_reaction_force/expand", expand, 0.1);
+			("/normal_reaction_force/expand", expand, 0.5);
 
 		ros::param::param<double>
 			("/path_prediction/step_size", step_size, 40);
@@ -43,7 +43,7 @@ namespace normal_reaction_force{
 		}
 
 		// range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
-		range = 1.1 * 2; // velocity = 1.1 [m/s], time = 2 [s]
+		range = 1.1 * 3; // velocity = 1.1 [m/s], time = 2 [s]
 
 		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
@@ -75,9 +75,8 @@ namespace normal_reaction_force{
 		}
 	}
 
-	bool VectorField::velocityConversion(std::vector<State4d>& humans)
+	void VectorField::velocityConversion(std::vector<State4d>& humans)
 	{
-		bool is_curve = false;
 		setDistances(humans);
 
 		Eigen::Vector2d human_normal;
@@ -108,7 +107,7 @@ namespace normal_reaction_force{
 					human_normal = (1 - mmath::logistic(distances.coeff(idx, i))) * other2own;
 					double dot_prod = (humans[idx].velocity - humans[i].velocity).dot(human_normal);
 					if(dot_prod < 0){
-						human_force += dot_prod * human_normal;
+						human_force += 0.005 * dot_prod * human_normal;
 						++human_count;
 					}
 				}
@@ -132,12 +131,10 @@ namespace normal_reaction_force{
 					// humans[idx].velocity = velocity_converted[idx];
 				}
 				humans[idx].velocity = 0.2 * velocity_converted[idx] + 0.8 * humans[idx].velocity;
-				is_curve = true;
 			}else{
 				humans[idx].velocity = velocity_converted[idx];
 			}
 		}
-		return is_curve;
 	}
 
 	// private
