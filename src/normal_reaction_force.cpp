@@ -107,7 +107,7 @@ namespace normal_reaction_force{
 					human_normal = (1 - mmath::logistic(distances.coeff(idx, i))) * other2own;
 					double dot_prod = (humans[idx].velocity - humans[i].velocity).dot(human_normal);
 					if(dot_prod < 0){
-						human_force += 0.005 * dot_prod * human_normal;
+						human_force += 0.007 * dot_prod * human_normal;
 						++human_count;
 					}
 				}
