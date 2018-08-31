@@ -310,7 +310,7 @@ namespace normal_reaction_force{
 
 		// marker.header.frame_id = "/map";
 		arrow.header.stamp = ros::Time::now();
-		arrow.header.frame_id = "/velodyne";
+		arrow.header.frame_id = "/map";
 
 		arrow.ns = "/vf/arrow";
 		int id = 0;
