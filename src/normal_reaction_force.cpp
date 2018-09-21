@@ -45,7 +45,6 @@ namespace normal_reaction_force{
 		// range = step_size * 1.1 / 10 + expand; // velocity = 1.1 [m/s], roop_late = 10 [Hz]
 		range = 1.1 * 3.5; // velocity [m/s] x time [s]
 
-		// _publisher = node.advertise<sensor_msgs::PointCloud2>("obsOnLine", 10); // for debug
 		_publisher = node.advertise<visualization_msgs::MarkerArray>("vectorField", 10); // for debug
 	}
 
