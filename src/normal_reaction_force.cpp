@@ -61,7 +61,6 @@ namespace normal_reaction_force{
 	{
 		nhumans = nums;
 		distances.resize(nhumans, nhumans);
-		// in_range.resize(nhumans, nhumans);
 
 		double dist;
 		for(unsigned i = 0; i < nhumans; ++i){

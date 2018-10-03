@@ -61,7 +61,6 @@ namespace normal_reaction_force{
 		unsigned npoints;
 		pcNormalPtr obstacles;
 		Eigen::MatrixXd distances;
-		// Eigen::MatrixXd<bool> in_range;
 		unsigned nhumans;
 
 		double range; // max distance to obstacle with influence [m]
