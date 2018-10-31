@@ -38,7 +38,7 @@ namespace normal_reaction_force{
 			("/path_prediction/step_size", step_size, 40);
 
 		field.resize(grid_dim);
-		for(int i=0; i<grid_dim; ++i){
+		for(int i = 0; i != grid_dim; ++i){
 			field[i].resize(grid_dim);
 		}
 
@@ -63,9 +63,9 @@ namespace normal_reaction_force{
 		distances.resize(nhumans, nhumans);
 
 		double dist;
-		for(unsigned i = 0; i < nhumans; ++i){
+		for(unsigned i = 0; i != nhumans-1; ++i){
 			distances.coeffRef(i, i) = 0;
-			for(unsigned j = i+1; j < nhumans; ++j){
+			for(unsigned j = i+1; j != nhumans; ++j){
 				dist = distance(humans[i].position, humans[j].position);
 				distances.coeffRef(i, j) = dist - expand;
 				distances.coeffRef(j, i) = dist - expand;
@@ -77,15 +77,13 @@ namespace normal_reaction_force{
 	{
 		setDistances(humans);
 
-		Eigen::Vector2d human_normal;
-		Eigen::Vector2d human_force;
-		Eigen::Vector2d other2own;
+		Eigen::Vector2d human_normal, human_force, other2own;
 		int human_count;
 
 		std::vector<Eigen::Vector2d> velocity_converted;
 		velocity_converted.resize(nhumans);
 
-		for(unsigned idx = 0; idx < nhumans; ++idx){
+		for(unsigned idx = 0; idx != nhumans; ++idx){ // 障害物による速度変化
 			int row = (grid_dim/2) + humans[idx].position.x() / m_per_cell;
 			int col = (grid_dim/2) + humans[idx].position.y() / m_per_cell;
 			velocity_converted[idx] = humans[idx].velocity;
@@ -99,7 +97,7 @@ namespace normal_reaction_force{
 			}
 			human_force = {0.0, 0.0};
 			human_count = 0;
-			for(unsigned i = 0; i < nhumans; ++i){
+			for(unsigned i = 0; i != nhumans; ++i){ // 歩行者による速度変化
 				if(i != idx && distances.coeff(idx, i) < range){
 					other2own = (humans[idx].position - humans[i].position).normalized();
 					human_normal = (1 - mmath::logistic(distances.coeff(idx, i))) * other2own;
@@ -114,7 +112,7 @@ namespace normal_reaction_force{
 				velocity_converted[idx] -= human_force / human_count;
 			}
 		}
-		for(unsigned idx = 0; idx < nhumans; ++idx){
+		for(unsigned idx = 0; idx != nhumans; ++idx){
 			double curve_rate
 				     = humans[idx].velocity.normalized().dot(velocity_converted[idx].normalized());
 			if(curve_rate < 0.3){
@@ -141,12 +139,8 @@ namespace normal_reaction_force{
 		setDirections();
 		setMagnitudes();
 
-		static int m_pub = 0;
-		if(m_pub == 20){
+		if(_publisher.getNumSubscribers() > 0){
 			publish(); // for debug
-			m_pub = 0;
-		}else{
-			++m_pub;
 		}
 	}
 
@@ -154,13 +148,15 @@ namespace normal_reaction_force{
 	{
 		fill(field, Eigen::MatrixXd::Zero(2, 1));
 
-		for(unsigned idx = 0; idx < npoints; ++idx){
+		for(unsigned idx = 0; idx != npoints; ++idx){
 			int i = 0, j = 0;
 			double i_max;
 			bool is2x; // direction{ x:true, y:false }
 
 			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
 										    -obstacles->points[idx].normal_y};
+			if(normal.norm() < 0.1){ continue; }
+
 			const double theta = atan2(normal.y(), normal.x());
 
 			const int x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
@@ -211,13 +207,15 @@ namespace normal_reaction_force{
 		std::fill(cnt[0], cnt[grid_dim], 0);
 		fill(magni, Eigen::MatrixXd::Zero(2, 1));
 
-		for(unsigned idx = 0; idx < npoints; ++idx){
+		for(unsigned idx = 0; idx != npoints; ++idx){
 			int i = 0, j = 0;
 			double i_max;
 			bool is2x; // direction{ x:true, y:false }
 
 			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
 										    -obstacles->points[idx].normal_y};
+			if(normal.norm() < 0.1){ continue; }
+
 			const double theta = atan2(normal.y(), normal.x());
 
 			const int x = ((grid_dim/2) + obstacles->points[idx].x / m_per_cell);
@@ -261,8 +259,8 @@ namespace normal_reaction_force{
 				}
 			}
 		}
-		for(int i = 0; i < grid_dim; ++i){
-			for(int j = 0; j < grid_dim; ++j){
+		for(int i = 0; i != grid_dim; ++i){
+			for(int j = 0; j != grid_dim; ++j){
 				if(magni[i][j].x() || magni[i][j].y()){
 					if(cnt[i][j] < 2){
 						magni[i][j] = {0.0, 0.0};
@@ -278,8 +276,8 @@ namespace normal_reaction_force{
 	void VectorField::setDistances(const std::vector<State4d>& humans)
 	{
 		double dist;
-		for(unsigned i = 0; i < nhumans; ++i){
-			for(unsigned j = i+1; j < nhumans; ++j){
+		for(unsigned i = 0; i != nhumans; ++i){
+			for(unsigned j = i+1; j != nhumans; ++j){
 				dist = distance(humans[i].position, humans[j].position);
 				distances.coeffRef(i, j) = dist - expand;
 				distances.coeffRef(j, i) = dist - expand;
@@ -297,7 +295,7 @@ namespace normal_reaction_force{
 	
 	void VectorField::fill(Field& _field, const Eigen::Vector2d& _val)
 	{
-		for(int i = 0; i<grid_dim; ++i){
+		for(int i = 0; i != grid_dim; ++i){
 			std::fill(_field[i].begin(), _field[i].end(), _val);
 		}
 	}
@@ -337,8 +335,8 @@ namespace normal_reaction_force{
 		arrow.pose.position.z = 0.0;
 		double yaw;
 
-		for(int i = 0; i < grid_dim; ++i){
-			for(int j = 0; j < grid_dim; ++j){
+		for(int i = 0; i != grid_dim; ++i){
+			for(int j = 0; j != grid_dim; ++j){
 				if(field[i][j].x() || field[i][j].y()){
 					arrow.pose.position.x = -grid_offset + (i*m_per_cell+m_per_cell/2.0);
 					arrow.pose.position.y = -grid_offset + (j*m_per_cell+m_per_cell/2.0);
