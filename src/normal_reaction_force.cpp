@@ -153,8 +153,8 @@ namespace normal_reaction_force{
 			double i_max;
 			bool is2x; // direction{ x:true, y:false }
 
-			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
-										    -obstacles->points[idx].normal_y};
+			const Eigen::Vector2d normal = {obstacles->points[idx].normal_x,
+										    obstacles->points[idx].normal_y};
 			if(normal.norm() < 0.1){ continue; }
 
 			const double theta = atan2(normal.y(), normal.x());
@@ -212,8 +212,8 @@ namespace normal_reaction_force{
 			double i_max;
 			bool is2x; // direction{ x:true, y:false }
 
-			const Eigen::Vector2d normal = {-obstacles->points[idx].normal_x,
-										    -obstacles->points[idx].normal_y};
+			const Eigen::Vector2d normal = {obstacles->points[idx].normal_x,
+										    obstacles->points[idx].normal_y};
 			if(normal.norm() < 0.1){ continue; }
 
 			const double theta = atan2(normal.y(), normal.x());
